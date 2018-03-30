@@ -66,6 +66,9 @@ func (c hueCollector) Collect(ch chan<- prometheus.Metric) {
 	//}
 	//fmt.Printf("Groups: %+v\n", groups)
 
+	c.counts.With(prometheus.Labels{"state": "on", "reachable": "yes"}).Set(0)
+	c.counts.With(prometheus.Labels{"state": "off", "reachable": "yes"}).Set(0)
+	c.counts.With(prometheus.Labels{"state": "off", "reachable": "no"}).Set(0)
 	for _, light := range lights {
 		st := "off"
 		if light.State.On {
