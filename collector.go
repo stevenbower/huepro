@@ -1,10 +1,11 @@
 package main
 
 import (
-	//"fmt"
+	"fmt"
 	hue "github.com/collinux/gohue"
 	log "github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
+	"regexp"
 )
 
 type hueCollector struct {
@@ -65,11 +66,14 @@ func (c hueCollector) Collect(ch chan<- prometheus.Metric) {
 	//return
 	//}
 	//fmt.Printf("Groups: %+v\n", groups)
+	nameRe := regexp.MustCompile("[^a-zA-Z0-9_]")
 
 	c.counts.With(prometheus.Labels{"state": "on", "reachable": "yes"}).Set(0)
 	c.counts.With(prometheus.Labels{"state": "off", "reachable": "yes"}).Set(0)
 	c.counts.With(prometheus.Labels{"state": "off", "reachable": "no"}).Set(0)
 	for _, light := range lights {
+		name := nameRe.ReplaceAllString(light.Name, "_")
+
 		st := "off"
 		if light.State.On {
 			st = "on"
@@ -82,11 +86,15 @@ func (c hueCollector) Collect(ch chan<- prometheus.Metric) {
 
 		c.counts.With(prometheus.Labels{"state": st, "reachable": rc}).Inc()
 
-		if light.State.On {
-			c.brightness.With(prometheus.Labels{"name": light.Name}).Set(float64(light.State.Bri))
+		if !light.State.Reachable {
+			c.brightness.With(prometheus.Labels{"name": name}).Set(-1.0)
+		} else if light.State.On {
+			c.brightness.With(prometheus.Labels{"name": name}).Set(float64(light.State.Bri))
+		} else {
+			c.brightness.With(prometheus.Labels{"name": name}).Set(0.0)
 		}
 
-		//fmt.Printf("Light: %s\n", light.Name, light.State.Reachable)
+		fmt.Printf("Light: %s %s\n", name, light.State.Reachable)
 	}
 	c.counts.Collect(ch)
 	c.brightness.Collect(ch)
